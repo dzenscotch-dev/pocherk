@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Лаборатория почерка — проект Астаховой Арины, 10 А: анализ рукописной страницы и проверка графологии тестом.">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Лаборатория почерка</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: a school notebook sheet — squared paper, red margin rule, blue-ink data, highlighter for "norm" ranges */
+:root{
+  --paper:#f5f7fb; --sheet:#ffffff; --grid:rgba(52,86,170,.09);
+  --text:#18203a; --muted:#59627a; --line:#dbe1ee;
+  --ink:#1f34a8; --ink-soft:rgba(31,52,168,.10);
+  --red:#cf3f35; --mark:#ffe680; --mark-ink:#5b4a00;
+  --ok:#2f7d4f; --warn:#b26a00;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --f-hand:"Caveat","Segoe Print","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#0f131c; --sheet:#151a26; --grid:rgba(140,165,255,.06);
+  --text:#e5e9f4; --muted:#9aa3ba; --line:#283044;
+  --ink:#9fb1ff; --ink-soft:rgba(159,177,255,.12);
+  --red:#ff7b6f; --mark:rgba(255,214,80,.30); --mark-ink:#ffe39a;
+  --ok:#6fd39a; --warn:#ffb85c; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#0f131c; --sheet:#151a26; --grid:rgba(140,165,255,.06);
+  --text:#e5e9f4; --muted:#9aa3ba; --line:#283044;
+  --ink:#9fb1ff; --ink-soft:rgba(159,177,255,.12);
+  --red:#ff7b6f; --mark:rgba(255,214,80,.30); --mark-ink:#ffe39a;
+  --ok:#6fd39a; --warn:#ffb85c; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:20px 20px;
+  color:var(--text); font-family:var(--f-body); font-size:15px; line-height:1.55;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:28px 64px;
+}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,5vw,46px);line-height:1.08;letter-spacing:-.01em}
+h1 em{font-style:normal;color:var(--ink)}
+h2{font-family:var(--f-display);font-weight:500;font-size:clamp(19px,2.6vw,24px);line-height:1.2}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+.hand{font-family:var(--f-hand);font-weight:700;color:var(--red);font-size:22px;line-height:1.1}
+.muted{color:var(--muted)}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* sheet with red margin rule */
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:6px;position:relative;
+  padding-block:24px;padding-left:44px;padding-right:24px;min-width:0}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:26px;width:2px;background:var(--red);opacity:.55}
+@media (max-width:560px){.sheet{padding-left:28px;padding-right:16px}.sheet::before{left:14px}}
+
+header.top{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:end}
+header.top .lead{max-width:60ch;margin-top:12px;color:var(--muted);font-size:16px}
+@media (max-width:860px){header.top{grid-template-columns:1fr}}
+
+.drop{border:2px dashed color-mix(in srgb,var(--ink) 45%,transparent);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;
+  background:var(--ink-soft);transition:background .15s}
+.drop.over{background:color-mix(in srgb,var(--ink) 22%,transparent)}
+.drop .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:inherit;font-weight:600;border:1px solid var(--ink);background:var(--ink);color:var(--sheet);padding:9px 16px;border-radius:6px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn:focus-visible,input:focus-visible,.seg label:focus-within{outline:3px solid color-mix(in srgb,var(--ink) 45%,transparent);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:default}
+.ctrls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ctrls label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.ctrls input[type=number]{font:inherit;font-family:var(--f-mono);padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:var(--sheet);color:var(--text);width:100%}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.hint{font-size:13px;color:var(--muted)}
+
+.status{font-size:14px;padding:10px 14px;border-radius:6px;border:1px solid var(--line);background:var(--sheet)}
+.status.err{border-color:var(--red);color:var(--red)}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--mark);color:var(--mark-ink)}
+
+/* results */
+.res{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:900px){.res{grid-template-columns:1fr}}
+.viewer{display:flex;flex-direction:column;gap:10px;min-width:0}
+.viewer canvas{width:100%;height:auto;border:1px solid var(--line);border-radius:4px;background:#fff;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:8px;margin-right:6px;vertical-align:middle;border-radius:2px}
+.panel{display:flex;flex-direction:column;gap:20px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{border-top:2px solid var(--ink);padding-top:6px}
+.kpi .v{font-family:var(--f-mono);font-size:22px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.kpi .k{font-size:12px;color:var(--muted)}
+.radar{width:100%;max-width:480px;margin:0 auto;display:block}
+.portrait{border-left:3px solid var(--red);padding:4px 0 4px 16px;display:flex;flex-direction:column;gap:10px}
+.portrait p{max-width:66ch}
+.note{font-size:13px;color:var(--muted);background:var(--ink-soft);padding:10px 12px;border-radius:6px}
+
+/* measurements */
+.meas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px 28px}
+.meas{display:flex;flex-direction:column;gap:6px;padding-bottom:16px;border-bottom:1px solid var(--line);min-width:0}
+.meas-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.meas-name{font-weight:600}
+.meas-val{font-family:var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gauge{position:relative;height:14px;border-radius:7px;background:var(--line)}
+.gauge .band{position:absolute;top:2px;bottom:2px;background:var(--mark);border-radius:5px}
+.gauge .pin{position:absolute;top:-4px;width:4px;height:22px;margin-left:-2px;background:var(--ink);border-radius:2px}
+.scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+.interp{font-size:14px}
+.tag{font-family:var(--f-hand);color:var(--red);font-size:18px;font-weight:700;margin-right:6px}
+
+/* experiment */
+.exp{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px}
+@media (max-width:900px){.exp{grid-template-columns:1fr}}
+.q{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.q-t{font-size:14.5px}
+.seg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.seg label{position:relative;display:block}
+.seg input{position:absolute;opacity:0;inset:0}
+.seg span{display:block;text-align:center;font-family:var(--f-mono);font-size:13px;padding:5px 0;border:1px solid var(--line);border-radius:4px;cursor:pointer}
+.seg input:checked+span{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.seg-cap{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+.cmp{display:flex;flex-direction:column;gap:12px}
+.cmp-row{display:grid;grid-template-columns:150px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:13.5px}
+@media (max-width:480px){.cmp-row{grid-template-columns:110px minmax(0,1fr) 34px}}
+.bars{display:flex;flex-direction:column;gap:3px}
+.bar{height:8px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.bar.p i{background:var(--red)}
+.bar.f i{background:var(--ink)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+th{font-weight:600;color:var(--muted);background:var(--ink-soft)}
+th:first-child,td:first-child{text-align:left}
+.how{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;counter-reset:st;padding:0;margin:0;list-style:none}
+.how li{counter-increment:st;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.how li::before{content:counter(st);font-family:var(--f-hand);font-size:30px;color:var(--red);line-height:1}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.field input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:5px;background:var(--sheet);color:var(--text)}
+.sec-head{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.sec-head p{max-width:72ch;color:var(--muted)}
+.sign{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;border-top:2px solid var(--red);padding-top:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="hand">Проект Астаховой Арины · 10 А</div>
+      <h1>Лаборатория <em>почерка</em></h1>
+      <p class="lead">Загрузите фото или скан страницы рукописного текста. Система найдёт строки и слова, измерит размер, наклон, интервалы, нажим и ровность, построит графологический портрет и даст проверить его тестом.</p>
+    </div>
+    <div class="drop" id="drop">
+      <div class="row">
+        <button class="btn" id="pick" type="button">Загрузить страницу</button>
+        <button class="btn ghost" id="sampleBtn" type="button">Показать пример</button>
+        <input type="file" id="file" accept="image/*" hidden>
+      </div>
+      <p class="hint">Или перетащите файл сюда. Лучше всего: нелинованный лист А4, синяя или чёрная ручка, кадр ровно по краю листа. Фото обрабатывается в браузере и никуда не отправляется.</p>
+      <div class="ctrls">
+        <label for="sens">Чувствительность к чернилам <input type="range" id="sens" min="6" max="35" value="16"></label>
+        <label for="paper">Ширина листа в кадре, мм <input type="number" id="paper" min="50" max="400" value="210"></label>
+      </div>
+    </div>
+  </header>
+
+  <div class="status" id="status">Загружаю пример…</div>
+
+  <section class="sheet" id="results" hidden>
+    <div class="res">
+      <div class="viewer">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h2 id="srcTitle">Разметка страницы</h2>
+          <label style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="ovl" checked> показать разметку</label>
+        </div>
+        <canvas id="view"></canvas>
+        <div class="legend">
+          <span><i style="background:rgba(31,52,168,.25)"></i>средняя зона букв</span>
+          <span><i style="background:#cf3f35;height:3px"></i>линия строки</span>
+          <span><i style="background:#e0a800;height:3px"></i>слова</span>
+          <span><i style="background:rgba(0,150,90,.6);height:3px"></i>поля</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="kpis" id="kpis"></div>
+        <svg class="radar" id="radar" viewBox="-50 0 540 360" role="img" aria-label="Профиль почерка"></svg>
+        <div class="portrait">
+          <div class="lbl">Графологический портрет</div>
+          <div id="portrait"></div>
+        </div>
+        <p class="note">Портрет составлен по правилам классической графологии (Мишон, Крепье-Жамен, Клагес). Контролируемые исследования не подтвердили эти связи: Neter и Ben-Shakhar (1989), Dazzi и Pedrabissi (2009). Поэтому ниже есть блок проверки, где тест сравнивается с предсказанием по почерку.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet" id="measSec" hidden>
+    <div class="sec-head">
+      <h2>Измерения</h2>
+      <p>Каждый признак измерен по пикселям. Жёлтая полоса — обычный диапазон для взрослого почерка, синяя метка — эта страница. Красная пометка — как признак трактует графология.</p>
+    </div>
+    <div class="meas-grid" id="meas"></div>
+  </section>
+
+  <section class="sheet" id="expSec" hidden>
+    <div class="sec-head">
+      <h2>Проверка: совпадает ли почерк с тестом</h2>
+      <p>Автор почерка отвечает на 10 вопросов короткого теста личности TIPI (Gosling и др., 2003). Система сравнивает результат с тем, что «предсказала» графология, и записывает пару в журнал. Наберите 30+ человек и посмотрите на корреляцию — это и есть исследование для проекта.</p>
+    </div>
+    <div class="exp">
+      <form id="tipi">
+        <div class="lbl" style="margin-bottom:4px">Я вижу себя как человека, который…</div>
+        <div id="qs"></div>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:14px">
+          <label class="field" for="code">Код участника (не имя)<input id="code" placeholder="например, 10Б-07" maxlength="20"></label>
+          <button class="btn" type="submit">Сравнить и записать</button>
+        </div>
+        <p class="hint" id="tipiMsg" style="margin-top:8px"></p>
+      </form>
+      <div class="cmp">
+        <div class="lbl">Почерк против теста, шкала 1–7</div>
+        <div class="legend"><span><i style="background:var(--red)"></i>предсказание по почерку</span><span><i style="background:var(--ink)"></i>результат теста</span></div>
+        <div id="cmp"></div>
+        <p class="hint" id="cmpNote">Заполните тест, чтобы увидеть сравнение.</p>
+      </div>
+    </div>
+    <div style="margin-top:26px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h3>Журнал исследования <span class="muted num" id="jn"></span></h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" id="copyCsv" type="button">Скопировать CSV</button>
+          <button class="btn ghost" id="clearJ" type="button">Очистить</button>
+        </div>
+      </div>
+      <div id="corr"></div>
+      <div class="tbl-wrap"><table id="jtbl"></table></div>
+      <textarea id="csvOut" hidden readonly style="width:100%;height:120px;font-family:var(--f-mono);font-size:12px;background:var(--sheet);color:var(--text);border:1px solid var(--line);border-radius:5px"></textarea>
+      <p class="hint">Журнал хранится только в этом браузере. Перед очисткой скопируйте CSV в таблицу.</p>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <div class="sec-head"><h2>Как работает система</h2></div>
+    <ol class="how">
+      <li><b>Бинаризация</b><span class="muted">Адаптивный порог отделяет чернила от бумаги даже при неровном свете.</span></li>
+      <li><b>Очистка</b><span class="muted">Удаляются точки шума, тени у краёв и линии разлиновки.</span></li>
+      <li><b>Компоненты</b><span class="muted">Связные пятна чернил — буквы и их части — получают номера.</span></li>
+      <li><b>Строки</b><span class="muted">Горизонтальная проекция находит строки, регрессия — их подъём.</span></li>
+      <li><b>Зоны и наклон</b><span class="muted">Профиль строки даёт высоту букв, перебор сдвига — угол наклона.</span></li>
+      <li><b>Слова</b><span class="muted">Пробелы шире половины высоты буквы считаются границами слов.</span></li>
+      <li><b>Портрет</b><span class="muted">Измерения переводятся в трактовки по правилам графологии.</span></li>
+      <li><b>Проверка</b><span class="muted">Тест TIPI и корреляция показывают, есть ли связь на самом деле.</span></li>
+    </ol>
+  </section>
+  <footer class="sign">
+    <span class="hand">Астахова Арина, 10 А</span>
+    <span class="muted">Исследовательский проект «Лаборатория почерка» · 2026</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const fmt=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const median=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+const mean=a=>a.reduce((s,v)=>s+v,0)/(a.length||1);
+const sd=a=>{if(a.length<2)return 0;const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1))};
+const state={src:null,isSample:true,res:null,lastFact:null};
+
+/* ---------- sample page ---------- */
+async function makeSample(){
+  try{await document.fonts.load('46px "Caveat"','Сегодня почерк');}catch(e){}
+  const W=1240,H=1754,c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');
+  x.fillStyle='#fbfbf7';x.fillRect(0,0,W,H);
+  const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(40,30,0,.07)');x.fillStyle=gr;x.fillRect(0,0,W,H);
+  const lines=["Сегодня после уроков мы всем классом пошли","в парк у реки. Было тепло, хотя уже октябрь,","и листья под ногами шуршали, как бумага.","Мы спорили о том, можно ли по почерку","узнать характер человека. Маша уверена,","что да: у неё почерк круглый и аккуратный.","Петя пишет быстро и с наклоном, а мой","почерк учительница называет «бегущим».","Я решил проверить это сам и собрать","образцы у всех, кто согласится помочь.","Потом сравню их с результатами теста","и посмотрю, есть ли хоть какая-то связь."];
+  x.fillStyle='#22318a';
+  let y=200;
+  lines.forEach((t,i)=>{
+    x.save();x.translate(150+i*4,y);
+    x.rotate((-1.1+Math.sin(i*1.7)*.35)*Math.PI/180);
+    x.transform(1,0,-.2,1,0,0);
+    x.font='60px "Caveat","Segoe Print","Comic Sans MS",cursive';
+    x.fillText(t,0,0);x.restore();
+    y+=112+Math.sin(i*2.3)*4;
+  });
+  return c;
+}
+
+/* ---------- analysis ---------- */
+function analyze(src,k,paperMm){
+  const W=src.width,H=src.height,N=W*H;
+  const id=src.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H).data;
+  const g=new Float32Array(N);
+  for(let i=0,j=0;i<N;i++,j+=4)g[i]=.299*id[j]+.587*id[j+1]+.114*id[j+2];
+  const W1=W+1,S=new Float64Array(W1*(H+1));
+  for(let y=0;y<H;y++){let row=0;const o=(y+1)*W1,p=y*W1;for(let x=0;x<W;x++){row+=g[y*W+x];S[o+x+1]=S[p+x+1]+row;}}
+  const r=Math.max(10,Math.round(Math.min(W,H)/32));
+  const bin=new Uint8Array(N);
+  for(let y=0;y<H;y++){
+    const y0=Math.max(0,y-r),y1=Math.min(H,y+r+1);
+    for(let x=0;x<W;x++){
+      const x0=Math.max(0,x-r),x1=Math.min(W,x+r+1);
+      const m=(S[y1*W1+x1]-S[y0*W1+x1]-S[y1*W1+x0]+S[y0*W1+x0])/((y1-y0)*(x1-x0));
+      const v=g[y*W+x];
+      if(v<m*(1-k)&&v<m-12)bin[y*W+x]=1;
+    }
+  }
+  const bx=Math.round(W*.012),by=Math.round(H*.012);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(x<bx||x>=W-bx||y<by||y>=H-by)bin[y*W+x]=0;
+  for(let y=0;y<H;y++){let c=0;for(let x=0;x<W;x++)c+=bin[y*W+x];if(c>.35*W)for(let x=0;x<W;x++)bin[y*W+x]=0;}
+  for(let x=0;x<W;x++){let c=0;for(let y=0;y<H;y++)c+=bin[y*W+x];if(c>.4*H)for(let y=0;y<H;y++)bin[y*W+x]=0;}
+
+  // connected components, 8-connectivity
+  const lab=new Int32Array(N);const parent=[0];
+  const find=a=>{while(parent[a]!==a){parent[a]=parent[parent[a]];a=parent[a];}return a};
+  const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b){if(a<b)parent[b]=a;else parent[a]=b;}};
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=y*W+x;if(!bin[i])continue;
+    let m=0;const nb=[];
+    if(x>0&&lab[i-1])nb.push(lab[i-1]);
+    if(y>0){const u=i-W;if(lab[u])nb.push(lab[u]);if(x>0&&lab[u-1])nb.push(lab[u-1]);if(x<W-1&&lab[u+1])nb.push(lab[u+1]);}
+    if(!nb.length){m=parent.length;parent.push(m);}
+    else{m=nb[0];for(const n of nb)uni(m,n);m=find(m);}
+    lab[i]=m;
+  }
+  const remap=new Int32Array(parent.length);let nc=0;
+  for(let a=1;a<parent.length;a++){const r0=find(a);if(!remap[r0])remap[r0]=++nc;remap[a]=remap[r0];}
+  const area=new Int32Array(nc+1),minx=new Int32Array(nc+1).fill(W),maxx=new Int32Array(nc+1),miny=new Int32Array(nc+1).fill(H),maxy=new Int32Array(nc+1),sy=new Float64Array(nc+1),sx=new Float64Array(nc+1);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(!lab[i])continue;const l=remap[lab[i]];lab[i]=l;area[l]++;sx[l]+=x;sy[l]+=y;if(x<minx[l])minx[l]=x;if(x>maxx[l])maxx[l]=x;if(y<miny[l])miny[l]=y;if(y>maxy[l])maxy[l]=y;}
+  const keep=new Uint8Array(nc+1);const minA=Math.max(6,Math.round(N*.000004));
+  for(let l=1;l<=nc;l++)keep[l]=(area[l]>=minA&&maxx[l]-minx[l]<.5*W&&maxy[l]-miny[l]<.2*H)?1:0;
+  let ink=0;
+  for(let i=0;i<N;i++){if(lab[i]&&!keep[lab[i]]){lab[i]=0;bin[i]=0;}if(bin[i])ink++;}
+  if(ink<400)throw new Error('На изображении почти не найдено чернил. Попробуйте поднять чувствительность или снять лист крупнее.');
+
+  // horizontal projection → line bands
+  const P=new Float64Array(H);for(let y=0;y<H;y++){let c=0;for(let x=0;x<W;x++)c+=bin[y*W+x];P[y]=c;}
+  const sw=4,Ps=new Float64Array(H);
+  for(let y=0;y<H;y++){let s=0,n=0;for(let d=-sw;d<=sw;d++){const t=y+d;if(t>=0&&t<H){s+=P[t];n++;}}Ps[y]=s/n;}
+  let pmax=0;for(let y=0;y<H;y++)if(Ps[y]>pmax)pmax=Ps[y];
+  let bands=[];let inB=false,b0=0;
+  for(let y=0;y<H;y++){const on=Ps[y]>.1*pmax;if(on&&!inB){inB=true;b0=y;}else if(!on&&inB){inB=false;bands.push([b0,y]);}}
+  if(inB)bands.push([b0,H]);
+  const merged=[];for(const b of bands){const l=merged[merged.length-1];if(l&&b[0]-l[1]<4)l[1]=b[1];else merged.push(b.slice());}
+  bands=merged.filter(b=>{if(b[1]-b[0]<5)return false;let s=0;for(let y=b[0];y<b[1];y++)s+=P[y];return s>ink*.004;});
+  const splitBand=(b,mh,depth)=>{
+    const h=b[1]-b[0];if(h<1.8*mh||depth>3)return[b];
+    let mx=0;for(let y=b[0];y<b[1];y++)mx=Math.max(mx,Ps[y]);
+    let best=-1,bv=Infinity;
+    for(let y=b[0]+Math.round(h*.25);y<b[1]-Math.round(h*.25);y++)if(Ps[y]<bv){bv=Ps[y];best=y;}
+    if(best<0||bv>.5*mx)return[b];
+    return[...splitBand([b[0],best],mh,depth+1),...splitBand([best,b[1]],mh,depth+1)];
+  };
+  const mh=median(bands.map(b=>b[1]-b[0]));
+  bands=bands.flatMap(b=>splitBand(b,mh,0));
+  if(!bands.length)throw new Error('Не удалось найти строки текста.');
+
+  // assign components to bands
+  const lineComps=bands.map(()=>[]);
+  for(let l=1;l<=nc;l++){
+    if(!keep[l])continue;const cy=sy[l]/area[l];
+    let bi=-1,bd=Infinity;
+    for(let i=0;i<bands.length;i++){const b=bands[i];const d=cy<b[0]?b[0]-cy:cy>b[1]?cy-b[1]:0;if(d<bd){bd=d;bi=i;}}
+    if(bi>=0)lineComps[bi].push(l);
+  }
+
+  const lines=[];
+  for(let li=0;li<bands.length;li++){
+    const comps=lineComps[li];if(!comps.length)continue;
+    const X=[],Y=[];
+    for(const l of comps){for(let y=miny[l];y<=maxy[l];y++)for(let x=minx[l];x<=maxx[l];x++)if(lab[y*W+x]===l){X.push(x);Y.push(y);}}
+    if(X.length<150)continue;
+    let xmn=W,xmx=0,ymn=H,ymx=0;for(let i=0;i<X.length;i++){if(X[i]<xmn)xmn=X[i];if(X[i]>xmx)xmx=X[i];if(Y[i]<ymn)ymn=Y[i];if(Y[i]>ymx)ymx=Y[i];}
+    const coreOf=(hist)=>{let m=0,am=0;for(let i=0;i<hist.length;i++)if(hist[i]>m){m=hist[i];am=i;}
+      let a=am,b=am;while(a>0&&hist[a-1]>=.5*m)a--;while(b<hist.length-1&&hist[b+1]>=.5*m)b++;
+      let t=0;while(t<hist.length&&hist[t]<.06*m)t++;let bt=hist.length-1;while(bt>0&&hist[bt]<.06*m)bt--;
+      return{a,b,t,bt,m};};
+    // rough x-height
+    let h0=new Float64Array(ymx-ymn+1);for(let i=0;i<Y.length;i++)h0[Y[i]-ymn]++;
+    const c0=coreOf(h0);const xh0=Math.max(4,c0.b-c0.a+1);
+    // baseline slope via chunk medians
+    const cw=Math.max(16,xh0*4);const chunks=[];
+    for(let cx=xmn;cx<xmx;cx+=cw){const ys=[];for(let i=0;i<X.length;i++)if(X[i]>=cx&&X[i]<cx+cw)ys.push(Y[i]);if(ys.length>=25)chunks.push([cx+cw/2,median(ys)]);}
+    let slope=0,xc=(xmn+xmx)/2,ycFit=median(Y),wob=0;
+    if(chunks.length>=3){const mx_=mean(chunks.map(c=>c[0])),my_=mean(chunks.map(c=>c[1]));let num=0,den=0;for(const[cx,cy]of chunks){num+=(cx-mx_)*(cy-my_);den+=(cx-mx_)**2;}slope=den?num/den:0;xc=mx_;ycFit=my_;wob=sd(chunks.map(([cx,cy])=>cy-(my_+slope*(cx-mx_))));}
+    // deskewed rows
+    const Yd=new Float64Array(Y.length);let ydmn=Infinity,ydmx=-Infinity;
+    for(let i=0;i<Y.length;i++){Yd[i]=Y[i]-slope*(X[i]-xc);if(Yd[i]<ydmn)ydmn=Yd[i];if(Yd[i]>ydmx)ydmx=Yd[i];}
+    const hist=new Float64Array(Math.ceil(ydmx-ydmn)+1);for(let i=0;i<Yd.length;i++)hist[Math.round(Yd[i]-ydmn)]++;
+    const c=coreOf(hist);const xh=Math.max(4,c.b-c.a+1);
+    const coreTop=ydmn+c.a,coreBot=ydmn+c.b,topZ=ydmn+c.t,botZ=ydmn+c.bt,ymid=(coreTop+coreBot)/2;
+    // slant via shear search
+    const step=Math.max(1,Math.floor(X.length/20000));
+    const shearScore=a=>{const t=Math.tan(a*Math.PI/180);const off=Math.ceil((ydmx-ydmn)*1.2)+2;const hb=new Float64Array(xmx-xmn+2*off+3);
+      for(let i=0;i<X.length;i+=step){const xs=X[i]+(Yd[i]-ymid)*t-xmn+off;hb[Math.round(xs)]++;}let s=0;for(const v of hb)s+=v*v;return s;};
+    let bestA=0,bestS=-1;for(let a=-45;a<=45;a+=3){const s=shearScore(a);if(s>bestS){bestS=s;bestA=a;}}
+    for(let a=bestA-2.5;a<=bestA+2.5;a+=.5){const s=shearScore(a);if(s>bestS){bestS=s;bestA=a;}}
+    const tn=Math.tan(bestA*Math.PI/180);
+    // word segmentation in sheared space
+    const off=Math.ceil((ydmx-ydmn)*1.2)+2;const pres=new Uint8Array(xmx-xmn+2*off+3);
+    for(let i=0;i<X.length;i++){pres[Math.round(X[i]+(Yd[i]-ymid)*tn-xmn+off)]=1;}
+    let f=0;while(f<pres.length&&!pres[f])f++;let e=pres.length-1;while(e>0&&!pres[e])e--;
+    const gaps=[];let gs=-1;for(let x=f;x<=e;x++){if(!pres[x]){if(gs<0)gs=x;}else if(gs>=0){gaps.push([gs,x]);gs=-1;}}
+    const wt=.55*xh;const wordGaps=[],letterGaps=[];const words=[];let ws=f;
+    for(const[a,b]of gaps){const L=b-a;if(L>=wt){wordGaps.push(L/xh);words.push([ws,a-1]);ws=b;}else letterGaps.push(L/xh);}
+    words.push([ws,e]);
+    // connectedness
+    const big=comps.filter(l=>maxy[l]-miny[l]+1>=.5*xh);
+    const ratios=[];
+    for(const[a,b]of words){const wdt=b-a+1;const lettersEst=wdt/(.6*xh);if(lettersEst<2)continue;
+      let n=0;for(const l of big){const cxs=sx[l]/area[l],cys=sy[l]/area[l]-slope*(sx[l]/area[l]-xc);const xs=cxs+(cys-ymid)*tn-xmn+off;if(xs>=a&&xs<=b)n++;}
+      ratios.push(clamp(n/lettersEst,0,1.2));}
+    const conn=ratios.length?clamp(1-median(ratios),0,1):NaN;
+    lines.push({xh,slope,angle:-Math.atan(slope)*180/Math.PI,slant:bestA,wob:wob/xh,xmn,xmx,xc,coreTop,coreBot,ymid,
+      upper:(coreTop-topZ)/xh,lower:(botZ-coreBot)/xh,wordGaps,letterGaps,words:words.map(([a,b])=>[a-off+xmn,b-off+xmn]),tn,conn,n:X.length,
+      cy:ymid+slope*0 /* deskewed center at xc */});
+  }
+  if(lines.length<2)throw new Error('Найдено меньше двух строк. Нужна страница хотя бы из 3–4 строк текста.');
+
+  // page level
+  let pminx=W,pmaxx=0,pminy=H,pmaxy=0;for(let l=1;l<=nc;l++)if(keep[l]){pminx=Math.min(pminx,minx[l]);pmaxx=Math.max(pmaxx,maxx[l]);pminy=Math.min(pminy,miny[l]);pmaxy=Math.max(pmaxy,maxy[l]);}
+  let bnd=0,inkSum=0,bgSum=0,bgN=0;
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(bin[i]){inkSum+=g[i];if(!bin[i-1]||!bin[i+1]||!bin[i-W]||!bin[i+W])bnd++;}else if((x+y)%7===0){bgSum+=g[i];bgN++;}}
+  const strokePx=bnd?2*ink/bnd:NaN;const contrast=clamp(((bgSum/bgN)-(inkSum/ink))/(bgSum/bgN),0,1);
+  const mmPerPx=paperMm/W;
+  const xhs=lines.map(l=>l.xh),xhMed=median(xhs);
+  const allWG=lines.flatMap(l=>l.wordGaps),allLG=lines.flatMap(l=>l.letterGaps);
+  const centers=lines.map(l=>l.ymid).sort((a,b)=>a-b);const diffs=[];for(let i=1;i<centers.length;i++)diffs.push(centers[i]-centers[i-1]);
+  const lefts=lines.map(l=>l.xmn);let mTrend=0;
+  if(lefts.length>=3){const ix=lefts.map((_,i)=>i),mx_=mean(ix),my_=mean(lefts);let num=0,den=0;ix.forEach((i,j)=>{num+=(i-mx_)*(lefts[j]-my_);den+=(i-mx_)**2;});mTrend=den?num/den/W*100*10:0;}
+  const words=lines.reduce((s,l)=>s+l.words.length,0);
+  const conns=lines.map(l=>l.conn).filter(Number.isFinite);
+  const m={
+    lines:lines.length,words,
+    xhMm:xhMed*mmPerPx, xhPx:xhMed,
+    slant:median(lines.map(l=>l.slant)), slantSd:sd(lines.map(l=>l.slant)),
+    angle:median(lines.map(l=>l.angle)), angleSd:sd(lines.map(l=>l.angle)),
+    wordGap:median(allWG), letterGap:median(allLG),
+    lineSpacing:median(diffs)/xhMed,
+    marginL:pminx/W*100, marginR:(W-1-pmaxx)/W*100, marginT:pminy/H*100, marginTrend:mTrend,
+    strokeMm:strokePx*mmPerPx, strokeRel:strokePx/xhMed, contrast,
+    conn:conns.length?median(conns):NaN,
+    upper:median(lines.map(l=>l.upper)), lower:median(lines.map(l=>l.lower)),
+    cvXh:sd(xhs)/mean(xhs), wobble:median(lines.map(l=>l.wob)),
+    density:ink/((pmaxx-pminx+1)*(pmaxy-pminy+1))
+  };
+  m.pressure=clamp(.55*clamp((m.strokeRel-.06)/.16,0,1)+.45*clamp((m.contrast-.25)/.5,0,1),0,1);
+  m.regular=clamp(1-(clamp(m.cvXh/.3,0,1)*.4+clamp(m.slantSd/12,0,1)*.3+clamp(m.wobble/.35,0,1)*.3),0,1);
+  return{m,lines,box:[pminx,pminy,pmaxx,pmaxy],W,H};
+}
+
+/* ---------- interpretation ---------- */
+const FEATS=[
+ {key:'xhMm',name:'Размер букв (средняя зона)',unit:' мм',d:1,lo:0,hi:6,nlo:2,nhi:3.5,cap:['мельче','крупнее'],
+  t:v=>v<2?'Мелкий почерк: сосредоточенность, внимание к деталям, сдержанность, склонность к умственной работе.':v>3.5?'Крупный почерк: общительность, желание быть заметным, широта интересов, щедрость.':'Средний размер: уравновешенность, умение приспосабливаться к обстановке.'},
+ {key:'slant',name:'Наклон букв',unit:'°',d:0,lo:-40,hi:40,nlo:-5,nhi:15,cap:['влево','вправо'],fmtv:v=>(v>0?'вправо ':v<0?'влево ':'')+fmt(Math.abs(v),0)+'°',
+  t:v=>v<-5?'Наклон влево: сдержанность, контроль над чувствами, опора на себя.':v<5?'Почти прямой почерк: рассудочность, самообладание, независимость.':v<20?'Умеренный наклон вправо: открытость, отзывчивость, интерес к людям.':'Сильный наклон вправо: импульсивность, эмоциональность, порывистость.'},
+ {key:'angle',name:'Направление строк',unit:'°',d:1,lo:-6,hi:6,nlo:-1,nhi:1,cap:['вниз','вверх'],fmtv:v=>(v>0.3?'вверх ':v<-0.3?'вниз ':'')+fmt(Math.abs(v),1)+'°',
+  t:v=>v>1?'Строки поднимаются: оптимизм, воодушевление, энергия в момент письма.':v<-1?'Строки опускаются: усталость или подавленное настроение в момент письма.':'Ровные строки: стабильное настроение, самоконтроль.'},
+ {key:'wordGap',name:'Интервалы между словами',unit:' × высота буквы',d:2,lo:0,hi:3,nlo:.7,nhi:1.5,cap:['теснее','шире'],
+  t:v=>v<.7?'Узкие промежутки: потребность в общении и близости, импульсивность.':v>1.5?'Широкие промежутки: потребность в личном пространстве, независимость, осторожность в контактах.':'Обычные промежутки: баланс между общением и дистанцией.'},
+ {key:'lineSpacing',name:'Расстояние между строками',unit:' × высота буквы',d:1,lo:1,hi:9,nlo:2.8,nhi:5,cap:['теснее','шире'],
+  t:v=>v<2.8?'Тесные строки: экономность, увлечённость, иногда спутанность мыслей.':v>5?'Широкие строки: ясность мышления, потребность в порядке и дистанции.':'Обычные межстрочные интервалы: упорядоченность мысли.'},
+ {key:'marginL',name:'Левое поле',unit:' %',d:1,lo:0,hi:30,nlo:5,nhi:15,cap:['уже','шире'],
+  t:v=>v<5?'Узкое левое поле: практичность, бережливость, привязанность к прошлому.':v>15?'Широкое левое поле: щедрость, чувство стиля, стремление начать с чистого листа.':'Обычное левое поле: умеренность и следование правилам.'},
+ {key:'marginR',name:'Правое поле',unit:' %',d:1,lo:0,hi:30,nlo:2,nhi:12,cap:['уже','шире'],
+  t:v=>v<2?'Текст доходит до края: напористость, нетерпение, стремление вперёд.':v>12?'Широкое правое поле: осторожность перед будущим, сдержанность.':'Обычное правое поле: спокойное отношение к будущему.'},
+ {key:'marginTrend',name:'Левое поле от строки к строке',unit:' % на 10 строк',d:1,lo:-10,hi:10,nlo:-1.5,nhi:1.5,cap:['сужается','расширяется'],
+  t:v=>v>1.5?'Поле расширяется к концу: увлечённость, нетерпение, быстрый темп.':v<-1.5?'Поле сужается: осторожность, экономность, возврат к привычному.':'Поле держится ровно: дисциплина и постоянство.'},
+ {key:'pressure',name:'Нажим (толщина и тёмность штриха)',unit:'',d:2,lo:0,hi:1,nlo:.3,nhi:.65,cap:['слабее','сильнее'],fmtv:v=>fmt(v*100,0)+' из 100',
+  t:v=>v>.65?'Сильный нажим: энергичность, настойчивость, глубокие и долгие переживания.':v<.3?'Слабый нажим: чувствительность, мягкость, впечатлительность.':'Средний нажим: уравновешенная энергия.'},
+ {key:'conn',name:'Связность письма',unit:'',d:2,lo:0,hi:1,nlo:.3,nhi:.7,cap:['раздельно','слитно'],fmtv:v=>fmt(v*100,0)+' %',
+  t:v=>v>.7?'Слитное письмо: последовательность, логика, склонность доводить дело до конца.':v<.3?'Раздельные буквы: интуитивность, независимость суждений, наблюдательность.':'Смешанная связность: сочетание логики и интуиции.'},
+ {key:'upper',name:'Верхняя зона (выносные вверх)',unit:' × высота буквы',d:2,lo:0,hi:2.5,nlo:.6,nhi:1.3,cap:['короче','длиннее'],
+  t:v=>v>1.3?'Длинные верхние элементы: интерес к идеям, мечтательность, амбиции.':v<.6?'Короткие верхние элементы: практичность, приземлённость.':'Обычная верхняя зона: баланс идей и практики.'},
+ {key:'lower',name:'Нижняя зона (выносные вниз)',unit:' × высота буквы',d:2,lo:0,hi:2.5,nlo:.6,nhi:1.3,cap:['короче','длиннее'],
+  t:v=>v>1.3?'Длинные нижние элементы: активность, интерес к спорту и материальному миру.':v<.6?'Короткие нижние элементы: сдержанность в физической активности.':'Обычная нижняя зона: уравновешенность.'},
+ {key:'regular',name:'Ровность почерка',unit:'',d:2,lo:0,hi:1,nlo:.55,nhi:.85,cap:['изменчивый','ровный'],fmtv:v=>fmt(v*100,0)+' из 100',
+  t:v=>v>.85?'Очень ровный почерк: самоконтроль, организованность, иногда скованность.':v<.55?'Изменчивый почерк: живость, переменчивость настроения, спонтанность.':'Умеренно ровный почерк: гибкость при сохранении порядка.'}
+];
+
+function predictB5(m){
+  const z=(v,c,s)=>Number.isFinite(v)?clamp((v-c)/s,-2,2):0;
+  const size=z(m.xhMm,2.8,.8),sl=z(m.slant,5,12),gap=z(m.wordGap,1.1,.4),ang=z(m.angle,0,1.2),reg=z(m.regular,.7,.15),conn=z(m.conn,.5,.2),pr=z(m.pressure,.45,.2),up=z(m.upper,.95,.35),ml=z(m.marginL,10,5);
+  const r=v=>clamp(4+v,1,7);
+  return{E:r(.8*size+.6*sl-.5*gap+.3*ang),A:r(.6*sl+.4*conn-.3*gap),C:r(.8*reg+.3*conn+.2*ml-.2*sl),ES:r(.6*reg+.4*ang-.3*Math.abs(sl)),O:r(.5*up-.4*conn+.3*gap+.2*size)};
+}
+const B5N={E:'Экстраверсия',A:'Доброжелательность',C:'Добросовестность',ES:'Эмоц. стабильность',O:'Открытость опыту'};
+
+/* ---------- render ---------- */
+function drawView(){
+  const c=$('#view'),R=state.res,src=state.src;if(!src)return;
+  c.width=src.width;c.height=src.height;const x=c.getContext('2d');
+  x.drawImage(src,0,0);
+  if(!R||!$('#ovl').checked)return;
+  x.fillStyle='rgba(255,255,255,.35)';x.fillRect(0,0,c.width,c.height);
+  const lw=Math.max(2,c.width/500);
+  for(const L of R.lines){
+    const yAt=(xx,yd)=>yd+L.slope*(xx-L.xc);
+    x.fillStyle='rgba(31,52,168,.22)';x.beginPath();
+    x.moveTo(L.xmn,yAt(L.xmn,L.coreTop));x.lineTo(L.xmx,yAt(L.xmx,L.coreTop));x.lineTo(L.xmx,yAt(L.xmx,L.coreBot));x.lineTo(L.xmn,yAt(L.xmn,L.coreBot));x.closePath();x.fill();
+    x.strokeStyle='#cf3f35';x.lineWidth=lw;x.beginPath();x.moveTo(L.xmn,yAt(L.xmn,L.coreBot));x.lineTo(L.xmx,yAt(L.xmx,L.coreBot));x.stroke();
+    x.strokeStyle='#e0a800';x.lineWidth=lw*1.4;
+    for(const[a,b]of L.words){const yb=L.coreBot+L.xh*.55;const ax=a-(yb-L.ymid)*L.tn,bx=b-(yb-L.ymid)*L.tn;x.beginPath();x.moveTo(ax,yAt(ax,yb));x.lineTo(bx,yAt(bx,yb));x.stroke();}
+  }
+  const[bx0,by0,bx1,by1]=R.box;x.setLineDash([lw*4,lw*3]);x.strokeStyle='rgba(0,150,90,.75)';x.lineWidth=lw;
+  x.beginPath();x.moveTo(bx0,0);x.lineTo(bx0,c.height);x.moveTo(bx1,0);x.lineTo(bx1,c.height);x.stroke();x.setLineDash([]);
+}
+function gaugeHTML(f,v){
+  const pos=v=>clamp((v-f.lo)/(f.hi-f.lo)*100,0,100);
+  const vt=Number.isFinite(v)?(f.fmtv?f.fmtv(v):fmt(v,f.d)+f.unit):'не измерено';
+  return`<div class="meas"><div class="meas-head"><span class="meas-name">${f.name}</span><span class="meas-val">${vt}</span></div>
+  <div class="gauge"><span class="band" style="left:${pos(f.nlo)}%;width:${pos(f.nhi)-pos(f.nlo)}%"></span>${Number.isFinite(v)?`<span class="pin" style="left:${pos(v)}%"></span>`:''}</div>
+  <div class="scale"><span>${f.cap[0]}</span><span>${f.cap[1]}</span></div>
+  <p class="interp"><span class="tag">графология:</span>${Number.isFinite(v)?f.t(v):'Недостаточно данных для этого признака.'}</p></div>`;
+}
+function radar(m){
+  const ax=[['Размер',m.xhMm,0,6],['Наклон вправо',m.slant,-30,40],['Подъём строк',m.angle,-4,4],['Интервалы',m.wordGap,0,3],['Связность',m.conn,0,1],['Нажим',m.pressure,0,1],['Верхняя зона',m.upper,0,2.5],['Ровность',m.regular,0,1]];
+  const cx=220,cy=180,R=118,n=ax.length;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return[cx+Math.cos(a)*r,cy+Math.sin(a)*r]};
+  let s='';
+  for(const k of[.25,.5,.75,1])s+=`<polygon points="${ax.map((_,i)=>pt(i,R*k).join(',')).join(' ')}" fill="none" stroke="var(--line)" stroke-width="1"/>`;
+  ax.forEach((_,i)=>{const[x,y]=pt(i,R);s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`});
+  const vals=ax.map(([,v,lo,hi])=>Number.isFinite(v)?clamp((v-lo)/(hi-lo),.02,1):0);
+  s+=`<polygon points="${vals.map((v,i)=>pt(i,R*v).join(',')).join(' ')}" fill="var(--ink-soft)" stroke="var(--ink)" stroke-width="2"/>`;
+  vals.forEach((v,i)=>{const[x,y]=pt(i,R*v);s+=`<circle cx="${x}" cy="${y}" r="3.5" fill="var(--ink)"/>`});
+  ax.forEach(([l],i)=>{const[x,y]=pt(i,R+22);const an=Math.abs(x-cx)<10?'middle':x>cx?'start':'end';s+=`<text x="${x}" y="${y+4}" text-anchor="${an}" font-size="12.5" fill="var(--muted)" font-family="IBM Plex Sans,system-ui,sans-serif">${l}</text>`});
+  $('#radar').innerHTML=s;
+}
+function portrait(m){
+  const pick=[];
+  const sc=(f)=>{const v=m[f.key];if(!Number.isFinite(v))return 0;const w=f.nhi-f.nlo||1;return v<f.nlo?(f.nlo-v)/w:v>f.nhi?(v-f.nhi)/w:0;};
+  const ranked=FEATS.map(f=>({f,s:sc(f)})).sort((a,b)=>b.s-a.s);
+  const strong=ranked.filter(r=>r.s>0).slice(0,4);
+  const base=strong.length?strong:ranked.slice(0,3);
+  for(const{f}of base)pick.push(f.t(m[f.key]).split(': ')[1]||f.t(m[f.key]));
+  const p=predictB5(m);
+  const lvl=v=>v>=5?'высокий':v<=3?'низкий':'средний';
+  return`<p>По правилам графологии этот почерк говорит о человеке так: ${pick.map(s=>s.replace(/\.$/,'')).join('; ')}.</p>
+  <p class="muted">Самые заметные признаки: ${base.map(r=>r.f.name.toLowerCase()).join(', ')}. Графологический прогноз по «Большой пятёрке»: экстраверсия — ${lvl(p.E)}, доброжелательность — ${lvl(p.A)}, добросовестность — ${lvl(p.C)}, эмоциональная стабильность — ${lvl(p.ES)}, открытость — ${lvl(p.O)}.</p>`;
+}
+function render(){
+  const R=state.res,m=R.m;
+  $('#results').hidden=false;$('#measSec').hidden=false;$('#expSec').hidden=false;
+  $('#srcTitle').innerHTML=state.isSample?'Разметка страницы <span class="badge">пример</span>':'Разметка страницы';
+  drawView();
+  $('#kpis').innerHTML=[[m.lines,'строк',0],[m.words,'слов',0],[m.xhMm,'мм высота букв',1],[m.slant,'° наклон',0]].map(([v,k,d])=>`<div class="kpi"><div class="v">${fmt(v,d)}</div><div class="k">${k}</div></div>`).join('');
+  radar(m);
+  $('#portrait').innerHTML=portrait(m);
+  $('#meas').innerHTML=FEATS.map(f=>gaugeHTML(f,m[f.key])).join('');
+  const warn=[];
+  if(m.xhPx<10)warn.push('буквы на снимке очень мелкие — снимите лист ближе');
+  if(m.lines<4)warn.push('строк мало, оценки неустойчивы');
+  $('#status').className='status';
+  $('#status').innerHTML=(state.isSample?'Показан пример страницы. Загрузите свою, чтобы получить портрет. ':'Готово. ')+(warn.length?'Внимание: '+warn.join('; ')+'.':'')+(state.isSample?'':' Если разметка легла неточно, подвиньте чувствительность.');
+  renderCmp();
+}
+async function run(canvas){
+  state.src=canvas;
+  $('#status').className='status';$('#status').textContent='Анализирую страницу…';
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const k=Number($('#sens').value)/100,paper=Number($('#paper').value)||210;
+    state.res=analyze(canvas,k,paper);render();
+  }catch(e){
+    state.res=null;drawView();$('#results').hidden=false;
+    $('#status').className='status err';$('#status').textContent=e.message||'Ошибка анализа.';
+  }
+}
+function loadFile(f){
+  if(!f||!f.type.startsWith('image/')){$('#status').className='status err';$('#status').textContent='Нужен файл изображения: JPG или PNG.';return;}
+  const url=URL.createObjectURL(f),im=new Image();
+  im.onload=()=>{const s=Math.min(1,1400/im.naturalWidth);const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(url);state.isSample=false;run(c);};
+  im.onerror=()=>{$('#status').className='status err';$('#status').textContent='Не получилось открыть файл. Сохраните фото как JPG и загрузите снова.';};
+  im.src=url;
+}
+
+/* ---------- TIPI ---------- */
+const TIPI=['общительный, полный энтузиазма','критичный, склонный спорить','надёжный, дисциплинированный','тревожный, легко расстраивающийся','открытый новому, сложный','сдержанный, тихий','сочувствующий, тёплый','неорганизованный, небрежный','спокойный, эмоционально устойчивый','обычный, не творческий'];
+$('#qs').innerHTML=TIPI.map((t,i)=>`<div class="q"><div class="q-t">${i+1}. …${t}</div><div class="seg" role="radiogroup" aria-label="${t}">${[1,2,3,4,5,6,7].map(v=>`<label><input type="radio" name="q${i}" value="${v}" id="q${i}_${v}"><span>${v}</span></label>`).join('')}</div><div class="seg-cap"><span>совсем не согласен</span><span>полностью согласен</span></div></div>`).join('');
+const JKEY='pocherk-journal-v1';
+const loadJ=()=>{try{return JSON.parse(localStorage.getItem(JKEY)||'[]')}catch(e){return[]}};
+const saveJ=j=>{try{localStorage.setItem(JKEY,JSON.stringify(j))}catch(e){}};
+let journal=loadJ();
+function pearson(a,b){const n=a.length;if(n<3)return NaN;const ma=mean(a),mb=mean(b);let s=0,sa=0,sb=0;for(let i=0;i<n;i++){s+=(a[i]-ma)*(b[i]-mb);sa+=(a[i]-ma)**2;sb+=(b[i]-mb)**2;}return sa&&sb?s/Math.sqrt(sa*sb):NaN;}
+function renderCmp(){
+  if(!state.res||!state.lastFact){$('#cmp').innerHTML='';return;}
+  const p=predictB5(state.res.m),f=state.lastFact;
+  $('#cmp').innerHTML=Object.keys(B5N).map(k=>`<div class="cmp-row"><span>${B5N[k]}</span><div class="bars"><div class="bar p"><i style="width:${(p[k]-1)/6*100}%"></i></div><div class="bar f"><i style="width:${(f[k]-1)/6*100}%"></i></div></div><span class="num">${fmt(f[k]-p[k],1)}</span></div>`).join('');
+  const err=mean(Object.keys(B5N).map(k=>Math.abs(f[k]-p[k])));
+  $('#cmpNote').textContent=`Средняя разница — ${fmt(err,1)} балла из 6. Одна пара ничего не доказывает: вывод можно сделать только по журналу из многих участников.`;
+}
+function renderJ(){
+  $('#jn').textContent=journal.length?`· ${journal.length}`:'';
+  const ks=Object.keys(B5N);
+  $('#jtbl').innerHTML=`<thead><tr><th>Код</th><th>Размер, мм</th><th>Наклон, °</th>${ks.map(k=>`<th>${k} почерк</th><th>${k} тест</th>`).join('')}</tr></thead><tbody>${journal.length?journal.map(r=>`<tr><td>${r.code.replace(/[<>&]/g,'')}</td><td>${fmt(r.m.xhMm,1)}</td><td>${fmt(r.m.slant,0)}</td>${ks.map(k=>`<td>${fmt(r.p[k],1)}</td><td>${fmt(r.f[k],1)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="12" style="text-align:left;color:var(--muted)">Пока пусто. После теста строка появится здесь.</td></tr>`}</tbody>`;
+  if(journal.length>=3){
+    const cells=ks.map(k=>{const r=pearson(journal.map(j=>j.p[k]),journal.map(j=>j.f[k]));const verdict=!Number.isFinite(r)?'нет разброса':Math.abs(r)<.2?'связи нет':Math.abs(r)<.4?'слабая связь':'заметная связь';return`<div class="kpi"><div class="v">${Number.isFinite(r)?fmt(r,2):'—'}</div><div class="k">${B5N[k]}: ${verdict}</div></div>`}).join('');
+    $('#corr').innerHTML=`<div class="lbl" style="margin-bottom:8px">Корреляция «почерк — тест» (r Пирсона)</div><div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${cells}</div><p class="hint" style="margin-top:8px">${journal.length<30?`Участников: ${journal.length}. Для надёжного вывода нужно хотя бы 30.`:'Выборка достаточна для предварительного вывода.'}</p>`;
+  }else $('#corr').innerHTML='';
+}
+$('#tipi').addEventListener('submit',e=>{
+  e.preventDefault();
+  const a=[];for(let i=0;i<10;i++){const c=document.querySelector(`input[name=q${i}]:checked`);if(!c){$('#tipiMsg').textContent=`Ответьте на вопрос ${i+1}.`;return;}a.push(+c.value);}
+  if(!state.res){$('#tipiMsg').textContent='Сначала загрузите страницу с почерком.';return;}
+  const R=v=>8-v;
+  const f={E:(a[0]+R(a[5]))/2,A:(R(a[1])+a[6])/2,C:(a[2]+R(a[7]))/2,ES:(R(a[3])+a[8])/2,O:(a[4]+R(a[9]))/2};
+  state.lastFact=f;renderCmp();
+  if(state.isSample){$('#tipiMsg').textContent='Сравнение показано. Для примера запись в журнал не делается — загрузите настоящую страницу.';return;}
+  const code=($('#code').value||'').trim()||`участник ${journal.length+1}`;
+  const m=state.res.m;
+  journal.push({code,m:{xhMm:m.xhMm,slant:m.slant,angle:m.angle,wordGap:m.wordGap,conn:m.conn,pressure:m.pressure,regular:m.regular},p:predictB5(m),f});
+  saveJ(journal);renderJ();$('#tipiMsg').textContent=`Записано: ${code}.`;
+});
+$('#copyCsv').addEventListener('click',()=>{
+  const ks=Object.keys(B5N);
+  const head=['code','size_mm','slant_deg','line_angle_deg','word_gap','connectedness','pressure','regularity',...ks.map(k=>k+'_handwriting'),...ks.map(k=>k+'_test')];
+  const rows=journal.map(r=>[r.code,r.m.xhMm,r.m.slant,r.m.angle,r.m.wordGap,r.m.conn,r.m.pressure,r.m.regular,...ks.map(k=>r.p[k]),...ks.map(k=>r.f[k])].map(v=>typeof v==='number'?(Number.isFinite(v)?v.toFixed(3):''):`"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv=[head.join(','),...rows].join('\n');const ta=$('#csvOut');ta.value=csv;ta.hidden=false;
+  const done=()=>{$('#copyCsv').textContent='Скопировано';setTimeout(()=>$('#copyCsv').textContent='Скопировать CSV',1600)};
+  try{navigator.clipboard.writeText(csv).then(done,()=>{ta.select();});}catch(e){ta.select();}
+});
+let clearArm=false;
+$('#clearJ').addEventListener('click',()=>{
+  if(!clearArm){clearArm=true;$('#clearJ').textContent='Нажмите ещё раз для очистки';setTimeout(()=>{clearArm=false;$('#clearJ').textContent='Очистить'},3000);return;}
+  journal=[];saveJ(journal);renderJ();clearArm=false;$('#clearJ').textContent='Очистить';
+});
+
+/* ---------- wiring ---------- */
+$('#pick').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',e=>loadFile(e.target.files[0]));
+const drop=$('#drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>loadFile(e.dataTransfer.files[0]));
+$('#sampleBtn').addEventListener('click',async()=>{state.isSample=true;run(await makeSample());});
+let t;$('#sens').addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>state.src&&run(state.src),250)});
+$('#paper').addEventListener('change',()=>state.src&&run(state.src));
+$('#ovl').addEventListener('change',drawView);
+renderJ();
+makeSample().then(c=>{state.isSample=true;run(c)});
+})();
+</script>
+
+</body>
+</html>
