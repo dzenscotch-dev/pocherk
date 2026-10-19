@@ -147,6 +147,7 @@ th:first-child,td:first-child{text-align:left}
 .field input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:5px;background:var(--sheet);color:var(--text)}
 .sec-head{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
 .sec-head p{max-width:72ch;color:var(--muted)}
+.consent{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13.5px;color:var(--muted)}.consent input{margin-top:3px;accent-color:var(--ink);flex:none}
 .sign{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between;border-top:2px solid var(--red);padding-top:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -220,6 +221,7 @@ th:first-child,td:first-child{text-align:left}
       <form id="tipi">
         <div class="lbl" style="margin-bottom:4px">Я вижу себя как человека, который…</div>
         <div id="qs"></div>
+        <label class="consent" for="agree"><input type="checkbox" id="agree"> <span>Я согласен(на), чтобы мои ответы и числовые измерения почерка (без фото и без имени, только код участника) сохранились в таблице исследования Астаховой Арины, 10 А. Данные используются только для школьного проекта.</span></label>
         <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:14px">
           <label class="field" for="code">Код участника (не имя)<input id="code" placeholder="например, 10Б-07" maxlength="20"></label>
           <button class="btn" type="submit">Сравнить и записать</button>
@@ -270,6 +272,8 @@ th:first-child,td:first-child{text-align:left}
 <script>
 (function(){
 const $=s=>document.querySelector(s);
+/* Адрес веб-приложения Google Apps Script, которое пишет строки в общую таблицу. Пусто — только локальный журнал. */
+const SHEET_URL='https://script.google.com/macros/s/AKfycbxDCvHhhWqbjWgHLjXn4LTTPI7yTIgiEVOq3QyltTeOiQD_Zk0mIlMqyEV9F7KE314B/exec';
 const fmt=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const median=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
@@ -623,7 +627,18 @@ $('#tipi').addEventListener('submit',e=>{
   const code=($('#code').value||'').trim()||`участник ${journal.length+1}`;
   const m=state.res.m;
   journal.push({code,m:{xhMm:m.xhMm,slant:m.slant,angle:m.angle,wordGap:m.wordGap,conn:m.conn,pressure:m.pressure,regular:m.regular},p:predictB5(m),f});
-  saveJ(journal);renderJ();$('#tipiMsg').textContent=`Записано: ${code}.`;
+  saveJ(journal);renderJ();
+  if(SHEET_URL&&$('#agree').checked){
+    const r=journal[journal.length-1];
+    const payload={code:r.code,size_mm:r.m.xhMm,slant_deg:r.m.slant,line_angle_deg:r.m.angle,word_gap:r.m.wordGap,connectedness:r.m.conn,pressure:r.m.pressure,regularity:r.m.regular,
+      E_hw:r.p.E,A_hw:r.p.A,C_hw:r.p.C,ES_hw:r.p.ES,O_hw:r.p.O,E_test:r.f.E,A_test:r.f.A,C_test:r.f.C,ES_test:r.f.ES,O_test:r.f.O,answers:a.join('')};
+    $('#tipiMsg').textContent=`Записано: ${code}. Отправляю в общую таблицу…`;
+    fetch(SHEET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+      .then(()=>{$('#tipiMsg').textContent=`Записано: ${code}. Результат отправлен в общую таблицу исследования.`;})
+      .catch(()=>{$('#tipiMsg').textContent=`Записано: ${code} в журнал этого устройства. В общую таблицу отправить не удалось — проверьте интернет и нажмите «Сравнить и записать» ещё раз.`;journal.pop();saveJ(journal);renderJ();});
+  }else{
+    $('#tipiMsg').textContent=SHEET_URL?`Записано: ${code} только на этом устройстве — без согласия в общую таблицу ничего не отправляется.`:`Записано: ${code}.`;
+  }
 });
 $('#copyCsv').addEventListener('click',()=>{
   const ks=Object.keys(B5N);
